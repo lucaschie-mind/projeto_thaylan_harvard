@@ -2,7 +2,20 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>{{ title or "Avaliador de Feedbacks" }}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+    .card { border: 1px solid #eee; border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+    .btn { display:inline-block; padding: 0.6rem 1rem; border-radius: 10px; border:1px solid #ddd; text-decoration: none; cursor:pointer; }
+    .btn-primary { background:#111; color:#fff; border-color:#111; }
+    .btn-ghost { background:#fff; color:#111; }
+    .muted { color:#666; }
+    label { display:block; margin:0.4rem 0 0.2rem; font-weight: 600; }
+    input[type="email"], select { padding:0.6rem; width:100%; border:1px solid #ccc; border-radius:10px; }
+    .space { height: 0.5rem; }
+    .row { display:flex; gap:1rem; flex-wrap:wrap; }
+  </style>
 </head>
 <body>
   <h1>{{ header or "Avaliador de Feedbacks" }}</h1>

@@ -1,20 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<p>{{ item["Feedback"] }}</p>
-<form method="post" action="/submit">
-  <input type="hidden" name="email" value="{{ email }}" />
-  <input type="hidden" name="id" value="{{ item.id }}" />
-  <input type="hidden" name="papel" value="{{ papel }}" />
-  <label>Esse feedback é bom e faz sentido?</label><br>
-  <input type="radio" name="resposta" value="Sim" required> Sim
-  <input type="radio" name="resposta" value="Não"> Não
-  <br><br>
-  <label>Se Não, qual o problema?</label><br>
-  <select name="problemas" multiple size="4">
-  {% for op in opcoes %}
-    <option value="{{ op }}">{{ op }}</option>
-  {% endfor %}
-  </select><br><br>
-  <button type="submit">Salvar</button>
-</form>
+<div class="card">
+  <p><strong>E-mail:</strong> {{ email }} &middot; <strong>Papel:</strong> {{ papel }}</p>
+  <div style="margin:0.5rem 0 1rem;"><strong>Feedback:</strong> {{ item["Feedback"] }}</div>
+
+  <form method="post" action="/submit" id="form-avaliar">
+    <input type="hidden" name="email" value="{{ email }}" />
+    <input type="hidden" name="id" value="{{ item.id }}" />
+    <input type="hidden" name="papel" value="{{ papel }}" />
+
+    <label>Para você esse Feedback é bom e faz sentido?</label>
+    <div>
+      <label><input type="radio" name="resposta" value="Sim" required checked /> Sim</label>
+      <label style="margin-left:1rem;"><input type="radio" name="resposta" value="Não" /> Não</label>
+    </div>
+
+    <div id="problemasBox" style="display:none; margin-top:0.75rem;">
+      <label>Qual o problema que você identificou? (pode marcar mais de um)</label>
+      <select name="problemas" multiple size="4">
+        {% for op in opcoes %}
+          <option value="{{ op }}">{{ op }}</option>
+        {% endfor %}
+      </select>
+      <p class="muted">Dica: use Ctrl/Cmd para selecionar várias opções.</p>
+    </div>
+
+    <div class="space"></div>
+    <button class="btn btn-primary" type="submit">Confirmar e ir para o próximo ▶</button>
+    <a class="btn btn-ghost" href="/?email={{ email }}">Ver lista</a>
+  </form>
+</div>
+
+<script>
+  const radios = document.querySelectorAll('input[name="resposta"]');
+  const problemasBox = document.getElementById('problemasBox');
+  function toggleProblemas() {
+    const no = [...radios].find(r => r.value === 'Não');
+    problemasBox.style.display = (no && no.checked) ? 'block' : 'none';
+  }
+  radios.forEach(r => r.addEventListener('change', toggleProblemas));
+  toggleProblemas();
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 's') {
+      document.querySelector('input[name="resposta"][value="Sim"]').checked = true;
+      toggleProblemas();
+    } else if (e.key.toLowerCase() === 'n') {
+      document.querySelector('input[name="resposta"][value="Não"]').checked = true;
+      toggleProblemas();
+    } else if (e.key === 'Enter') {
+      document.getElementById('form-avaliar').submit();
+    }
+  });
+</script>
 {% endblock %}

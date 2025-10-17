@@ -1,16 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<p>E-mail: {{ email }}</p>
-{% if itens|length == 0 %}
-<p>Nenhum feedback pendente.</p>
-{% else %}
-<ul>
-{% for it in itens %}
-  <li>
-    <strong>{{ it.row.id }}</strong> - {{ it.row["Feedback"] }}
-    <a href="/avaliar?email={{ email }}&id={{ it.row.id }}&papel={{ it.papel }}">Avaliar</a>
-  </li>
-{% endfor %}
-</ul>
-{% endif %}
+<div class="card">
+  <p>E-mail: <strong>{{ email }}</strong></p>
+  <p class="muted">Nenhum feedback pendente para você.</p>
+  <a class="btn btn-ghost" href="/">Sair</a>
+</div>
 {% endblock %}

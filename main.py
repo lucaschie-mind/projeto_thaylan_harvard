@@ -1,10 +1,12 @@
 import os
 from datetime import datetime
 from typing import List, Optional
+
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.templating import Jinja2Templates
+
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Text, DateTime, text
 from sqlalchemy.pool import NullPool
 
@@ -16,7 +18,8 @@ engine = create_engine(DATABASE_URL, poolclass=NullPool, future=True)
 metadata = MetaData()
 
 feedback_avaliacao = Table(
-    "feedback_avaliacao", metadata,
+    "feedback_avaliacao",
+    metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("Feedback", Text, nullable=False),
     Column("Avaliador_1", String(255)),
@@ -30,6 +33,7 @@ feedback_avaliacao = Table(
 )
 
 app = FastAPI(title="Avaliador de Feedbacks")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,30 +59,85 @@ PROBLEMA_OPCOES = [
 def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
 
-def row_to_dict(row):
+def row_to_dict(row) -> dict:
     return dict(row._mapping) if hasattr(row, "_mapping") else dict(row)
+
+def pendentes_para_email(email: str):
+    email = normalize_email(email)
+    sql = text("""        SELECT *
+        FROM feedback_avaliacao
+        WHERE
+            (LOWER(COALESCE("Avaliador_1", '')) = :em
+             AND "Resposta_avaliador_1" IS NULL)
+        OR
+            (LOWER(COALESCE("Avaliador_2", '')) = :em
+             AND "Resposta_avaliador_2" IS NULL)
+        ORDER BY id ASC
+    """)
+    with engine.begin() as conn:
+        rows = conn.execute(sql, {"em": email}).fetchall()
+    itens = []
+    for r in rows:
+        d = row_to_dict(r)
+        if normalize_email(d.get("Avaliador_1")) == email and d.get("Resposta_avaliador_1") is None:
+            itens.append({"row": d, "papel": "Avaliador_1"})
+        if normalize_email(d.get("Avaliador_2")) == email and d.get("Resposta_avaliador_2") is None:
+            itens.append({"row": d, "papel": "Avaliador_2"})
+    return itens
+
+def proximo_pendente(email: str, after_id: Optional[int] = None):
+    itens = pendentes_para_email(email)
+    if after_id is None:
+        return itens[0] if itens else None
+    for it in itens:
+        if it["row"]["id"] > after_id:
+            return it
+    return itens[0] if itens else None
+
+def atualizar_resposta(item_id: int, papel: str, resposta: str, problemas: Optional[List[str]] = None):
+    if papel == "Avaliador_1":
+        col_resp = "Resposta_avaliador_1"
+        col_prob = "Problemas_avaliador_1"
+    elif papel == "Avaliador_2":
+        col_resp = "Resposta_avaliador_2"
+        col_prob = "Problemas_avaliador_2"
+    else:
+        raise HTTPException(status_code=400, detail="Papel inválido")
+
+    problemas_csv = None
+    if resposta == "Não" and problemas:
+        problemas_csv = ", ".join([p for p in problemas if p in PROBLEMA_OPCOES])
+
+    campos = {col_resp: resposta, "updated_at": datetime.utcnow()}
+    if problemas_csv is not None:
+        campos[col_prob] = problemas_csv
+
+    set_clause = ", ".join([f'"{k}" = :{k}' for k in campos.keys()])
+    sql = text(f'UPDATE feedback_avaliacao SET {set_clause} WHERE id = :id')
+    params = {**campos, "id": item_id}
+
+    with engine.begin() as conn:
+        res = conn.execute(sql, params)
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Registro não encontrado")
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, email: Optional[str] = None):
     if not email:
         return templates.TemplateResponse("index.html", {"request": request})
+
     email_norm = normalize_email(email)
-    sql = text('''
-        SELECT * FROM feedback_avaliacao
-        WHERE (LOWER(COALESCE("Avaliador_1",'')) = :em AND "Resposta_avaliador_1" IS NULL)
-        OR (LOWER(COALESCE("Avaliador_2",'')) = :em AND "Resposta_avaliador_2" IS NULL)
-        ORDER BY id
-    ''')
-    with engine.begin() as conn:
-        rows = conn.execute(sql, {"em": email_norm}).fetchall()
-    itens = []
-    for r in rows:
-        d = row_to_dict(r)
-        if normalize_email(d.get("Avaliador_1")) == email_norm and d.get("Resposta_avaliador_1") is None:
-            itens.append({"row": d, "papel": "Avaliador_1"})
-        if normalize_email(d.get("Avaliador_2")) == email_norm and d.get("Resposta_avaliador_2") is None:
-            itens.append({"row": d, "papel": "Avaliador_2"})
-    return templates.TemplateResponse("lista.html", {"request": request, "email": email_norm, "itens": itens})
+    prox = proximo_pendente(email_norm)
+    if prox:
+        item = prox["row"]
+        papel = prox["papel"]
+        url = f"/avaliar?email={email_norm}&id={item['id']}&papel={papel}"
+        return RedirectResponse(url=url, status_code=303)
+
+    return templates.TemplateResponse(
+        "lista.html",
+        {"request": request, "email": email_norm, "itens": []},
+    )
 
 @app.get("/avaliar", response_class=HTMLResponse)
 def avaliar(request: Request, email: str, id: int, papel: str):
@@ -88,19 +147,49 @@ def avaliar(request: Request, email: str, id: int, papel: str):
         row = conn.execute(sql, {"id": id}).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Registro não encontrado")
+
     d = row_to_dict(row)
-    return templates.TemplateResponse("avaliar.html", {"request": request, "email": email_norm, "papel": papel, "item": d, "opcoes": PROBLEMA_OPCOES})
+    if normalize_email(d.get(papel)) != email_norm:
+        raise HTTPException(status_code=403, detail="Você não está autorizado a avaliar este feedback.")
+
+    return templates.TemplateResponse(
+        "avaliar.html",
+        {
+            "request": request,
+            "email": email_norm,
+            "papel": papel,
+            "item": d,
+            "opcoes": PROBLEMA_OPCOES,
+        },
+    )
 
 @app.post("/submit")
-def submit(email: str = Form(...), id: int = Form(...), papel: str = Form(...),
-           resposta: str = Form(...), problemas: Optional[List[str]] = Form(None)):
-    col_resp = "Resposta_avaliador_1" if papel == "Avaliador_1" else "Resposta_avaliador_2"
-    col_prob = "Problemas_avaliador_1" if papel == "Avaliador_1" else "Problemas_avaliador_2"
-    problemas_csv = ", ".join(problemas) if resposta == "Não" and problemas else None
-    sql = text(f'UPDATE feedback_avaliacao SET "{col_resp}" = :resp, "{col_prob}" = :prob, updated_at = :now WHERE id = :id')
-    with engine.begin() as conn:
-        conn.execute(sql, {"resp": resposta, "prob": problemas_csv, "id": id, "now": datetime.utcnow()})
-    return RedirectResponse(url=f"/?email={email}", status_code=303)
+def submit(
+    email: str = Form(...),
+    id: int = Form(...),
+    papel: str = Form(...),
+    resposta: str = Form(...),
+    problemas: Optional[List[str]] = Form(None),
+):
+    resposta = resposta.strip()
+    if resposta not in ("Sim", "Não"):
+        raise HTTPException(status_code=400, detail="Resposta inválida")
+
+    atualizar_resposta(id, papel, resposta, problemas)
+
+    email_norm = normalize_email(email)
+    prox = proximo_pendente(email_norm, after_id=id)
+    if prox:
+        item = prox["row"]
+        next_papel = prox["papel"]
+        url = f"/avaliar?email={email_norm}&id={item['id']}&papel={next_papel}"
+        return RedirectResponse(url=url, status_code=303)
+
+    return RedirectResponse(url=f"/fim?email={email_norm}", status_code=303)
+
+@app.get("/fim", response_class=HTMLResponse)
+def fim(request: Request, email: str):
+    return templates.TemplateResponse("fim.html", {"request": request, "email": email})
 
 @app.get("/healthz")
 def healthz():

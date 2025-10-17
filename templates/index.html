@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<form method="get" action="/">
-  <label>E-mail:</label>
-  <input type="email" name="email" required />
-  <button type="submit">Continuar</button>
-</form>
+<div class="card">
+  <p class="muted">Digite seu e-mail para começar. Se houver pendências, você irá direto para a primeira avaliação.</p>
+  <form method="get" action="/">
+    <label for="email">E-mail</label>
+    <input id="email" name="email" type="email" placeholder="seu@email.com" required />
+    <div class="space"></div>
+    <button class="btn btn-primary" type="submit">Entrar</button>
+  </form>
+</div>
 {% endblock %}

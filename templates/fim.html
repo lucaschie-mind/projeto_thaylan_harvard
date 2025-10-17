@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Prontinho 🎉</h2>
+  <p>Você concluiu todas as avaliações pendentes para <strong>{{ email }}</strong>.</p>
+  <a class="btn btn-primary" href="/?email={{ email }}">Verificar novamente</a>
+  <a class="btn btn-ghost" href="/">Sair</a>
+</div>
+{% endblock %}
