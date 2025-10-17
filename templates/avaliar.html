@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<p>{{ item["Feedback"] }}</p>
+<form method="post" action="/submit">
+  <input type="hidden" name="email" value="{{ email }}" />
+  <input type="hidden" name="id" value="{{ item.id }}" />
+  <input type="hidden" name="papel" value="{{ papel }}" />
+  <label>Esse feedback é bom e faz sentido?</label><br>
+  <input type="radio" name="resposta" value="Sim" required> Sim
+  <input type="radio" name="resposta" value="Não"> Não
+  <br><br>
+  <label>Se Não, qual o problema?</label><br>
+  <select name="problemas" multiple size="4">
+  {% for op in opcoes %}
+    <option value="{{ op }}">{{ op }}</option>
+  {% endfor %}
+  </select><br><br>
+  <button type="submit">Salvar</button>
+</form>
+{% endblock %}
