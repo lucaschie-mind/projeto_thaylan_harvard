@@ -8,6 +8,8 @@
     <input type="hidden" name="email" value="{{ email }}" />
     <input type="hidden" name="id" value="{{ item.id }}" />
     <input type="hidden" name="papel" value="{{ papel }}" />
+    <!-- ajuda o backend a identificar que o form foi enviado mesmo sem problemas marcados -->
+    <input type="hidden" name="problemas_submitted" value="1" />
 
     <label>Para você esse Feedback é bom e faz sentido?</label>
     <div>
@@ -15,9 +17,10 @@
       <label style="margin-left:1rem;"><input type="radio" name="resposta" value="Não" /> Não</label>
     </div>
 
-    <div id="problemasBox" style="display:none; margin-top:0.75rem;">
-      <label>Qual o problema que você identificou? (pode marcar mais de um)</label>
-      <select name="problemas" multiple size="4">
+    <!-- SEMPRE VISÍVEL -->
+    <div id="problemasBox" style="margin-top:0.75rem;">
+      <label>Se quiser, marque pontos de melhoria (opcional — mesmo se você marcou “Sim”):</label>
+      <select name="problemas" multiple size="4" style="width:100%; max-width:480px;">
         {% for op in opcoes %}
           <option value="{{ op }}">{{ op }}</option>
         {% endfor %}
@@ -32,24 +35,18 @@
 </div>
 
 <script>
-  const radios = document.querySelectorAll('input[name="resposta"]');
-  const problemasBox = document.getElementById('problemasBox');
-  function toggleProblemas() {
-    const no = [...radios].find(r => r.value === 'Não');
-    problemasBox.style.display = (no && no.checked) ? 'block' : 'none';
-  }
-  radios.forEach(r => r.addEventListener('change', toggleProblemas));
-  toggleProblemas();
-
+  // Atalhos de teclado: S = “Sim”, N = “Não”, Enter = enviar
   document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 's') {
-      document.querySelector('input[name="resposta"][value="Sim"]').checked = true;
-      toggleProblemas();
+      const sim = document.querySelector('input[name="resposta"][value="Sim"]');
+      if (sim) sim.checked = true;
     } else if (e.key.toLowerCase() === 'n') {
-      document.querySelector('input[name="resposta"][value="Não"]').checked = true;
-      toggleProblemas();
+      const nao = document.querySelector('input[name="resposta"][value="Não"]');
+      if (nao) nao.checked = true;
     } else if (e.key === 'Enter') {
-      document.getElementById('form-avaliar').submit();
+      e.preventDefault(); // evita submeter em campos de seleção acidentalmente
+      const form = document.getElementById('form-avaliar');
+      if (form) form.submit();
     }
   });
 </script>

@@ -50,10 +50,15 @@ def init_db():
 init_db()
 
 PROBLEMA_OPCOES = [
-    "Muito genérico",
-    "Falta planos para o futuro",
-    "Não parece agregar para pessoa",
-    "Falta ponto positivo e de desenvolvimento",
+    "Texto genérico / vago",
+    "Falta de exemplos",
+    "Sem objetivo claro",
+    "Linguagem muito dura",
+    "Escrita impessoal ou mecânica",
+    "Apenas em pontos negativos",
+    "Enaltecer apenas o positivo",
+    "Foco em traços pessoais, não comportamentos",
+    "Falta de direcionamento",
 ]
 
 def normalize_email(email: str) -> str:
@@ -104,13 +109,15 @@ def atualizar_resposta(item_id: int, papel: str, resposta: str, problemas: Optio
     else:
         raise HTTPException(status_code=400, detail="Papel inválido")
 
+    # Agora aceita problemas mesmo com "Sim". Se vier lista vazia, limpa a coluna.
     problemas_csv = None
-    if resposta == "Não" and problemas:
-        problemas_csv = ", ".join([p for p in problemas if p in PROBLEMA_OPCOES])
+    if problemas is not None:
+        validos = [p for p in problemas if p in PROBLEMA_OPCOES]
+        problemas_csv = ", ".join(validos) if validos else None  # None -> grava NULL (limpa)
 
     campos = {col_resp: resposta, "updated_at": datetime.utcnow()}
-    if problemas_csv is not None:
-        campos[col_prob] = problemas_csv
+    if problemas is not None:
+        campos[col_prob] = problemas_csv  # atualiza/limpa explicitamente
 
     set_clause = ", ".join([f'"{k}" = :{k}' for k in campos.keys()])
     sql = text(f'UPDATE feedback_avaliacao SET {set_clause} WHERE id = :id')
@@ -170,10 +177,15 @@ def submit(
     papel: str = Form(...),
     resposta: str = Form(...),
     problemas: Optional[List[str]] = Form(None),
+    problemas_submitted: Optional[str] = Form(None),  # <-- novo
 ):
     resposta = resposta.strip()
     if resposta not in ("Sim", "Não"):
         raise HTTPException(status_code=400, detail="Resposta inválida")
+
+    # Se o formulário foi enviado e nenhuma opção de problema foi marcada, limpamos a coluna
+    if problemas_submitted is not None and problemas is None:
+        problemas = []  # força limpar em atualizar_resposta
 
     atualizar_resposta(id, papel, resposta, problemas)
 
