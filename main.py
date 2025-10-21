@@ -50,15 +50,12 @@ def init_db():
 init_db()
 
 PROBLEMA_OPCOES = [
-    "Texto genérico / vago",
-    "Falta de exemplos",
+    "Texto genérico / vago (gerador de lero lero)",
+    "Falta de exemplos concretos e reis",
     "Sem objetivo claro",
-    "Linguagem muito dura",
-    "Escrita impessoal ou mecânica",
-    "Apenas em pontos negativos",
-    "Enaltecer apenas o positivo",
-    "Foco em traços pessoais, não comportamentos",
-    "Falta de direcionamento",
+    "Apenas pontos negativos",
+    "Apenas pontos positivos",
+    "N/A",
 ]
 
 def normalize_email(email: str) -> str:
