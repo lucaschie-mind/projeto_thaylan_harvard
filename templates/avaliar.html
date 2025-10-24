@@ -1,53 +1,72 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <p><strong>E-mail:</strong> {{ email }} &middot; <strong>Papel:</strong> {{ papel }}</p>
-  <div style="margin:0.5rem 0 1rem;"><strong>Feedback:</strong> {{ item["Feedback"] }}</div>
+<div class="card" style="max-width: 880px; margin: 0 auto;">
+  <p style="margin:0 0 .75rem;">
+    <strong>E-mail:</strong> {{ email }} &middot; <strong>Papel:</strong> {{ papel }}
+  </p>
 
-  <form method="post" action="/submit" id="form-avaliar">
+  <div style="margin:0.5rem 0 1.25rem; line-height:1.5;">
+    <strong>Feedback:</strong>
+    <div style="white-space:pre-wrap; border:1px solid #e5e7eb; border-radius:.5rem; padding:.75rem; background:#fafafa;">
+      {{ item["Feedback"] }}
+    </div>
+  </div>
+
+  <form method="post" action="/submit" id="form-avaliar" style="display:block;">
     <input type="hidden" name="email" value="{{ email }}" />
     <input type="hidden" name="id" value="{{ item.id }}" />
     <input type="hidden" name="papel" value="{{ papel }}" />
-    <!-- ajuda o backend a identificar que o form foi enviado mesmo sem problemas marcados -->
-    <input type="hidden" name="problemas_submitted" value="1" />
 
-    <label>Para você esse Feedback é bom e faz sentido?</label>
-    <div>
-      <label><input type="radio" name="resposta" value="Sim" required checked /> Sim</label>
-      <label style="margin-left:1rem;"><input type="radio" name="resposta" value="Não" /> Não</label>
+    <!-- Pergunta principal -->
+    <label style="display:block; font-weight:600; margin:.25rem 0 .5rem;">
+      Para você esse Feedback é bom e faz sentido?
+    </label>
+    <div style="margin: .25rem 0 1rem;">
+      <label><input type="radio" name="resposta" value="Sim" required {% if not item.get('Resposta_avaliador_1') and not item.get('Resposta_avaliador_2') %}checked{% endif %}> Sim</label>
+      <label style="margin-left:1rem;"><input type="radio" name="resposta" value="Não" required> Não</label>
     </div>
 
-    <!-- SEMPRE VISÍVEL -->
-    <div id="problemasBox" style="margin-top:0.75rem;">
-      <label>Se quiser, marque pontos de melhoria (opcional — mesmo se você marcou “Sim”):</label>
-      <select name="problemas" multiple size="4" style="width:100%; max-width:480px;">
-        {% for op in opcoes %}
-          <option value="{{ op }}">{{ op }}</option>
-        {% endfor %}
-      </select>
-      <p class="muted">Dica: use Ctrl/Cmd para selecionar várias opções.</p>
+    <!-- Picklist de problemas -->
+    <label style="display:block; font-weight:600; margin:.25rem 0 .5rem;">
+      Quais problemas você identifica?
+    </label>
+    <div style="margin:.25rem 0 1rem;">
+      {% for opc in opcoes %}
+        <label style="display:block; margin:.25rem 0;">
+          <input
+            type="checkbox"
+            name="problemas"
+            value="{{ opc }}"
+            {% if papel == 'Avaliador_1' %}
+              {% if item.get('Problemas_avaliador_1') and (opc in (item['Problemas_avaliador_1'] or '')) %}checked{% endif %}
+            {% elif papel == 'Avaliador_2' %}
+              {% if item.get('Problemas_avaliador_2') and (opc in (item['Problemas_avaliador_2'] or '')) %}checked{% endif %}
+            {% endif %}
+          >
+          {{ opc }}
+        </label>
+      {% endfor %}
+      <!-- Indicador para permitir "limpar" problemas quando nenhum checkbox for marcado -->
+      <input type="hidden" name="problemas_submitted" value="1">
     </div>
 
-    <div class="space"></div>
-    <button class="btn btn-primary" type="submit">Confirmar e ir para o próximo ▶</button>
-    <a class="btn btn-ghost" href="/?email={{ email }}">Ver lista</a>
+    <!-- Campo aberto (nova pergunta) -->
+    <label for="campo_aberto" style="display:block; font-weight:600; margin:.25rem 0 .5rem;">
+      Caso tenha alguma consideração, escreva abaixo
+    </label>
+    <textarea
+      id="campo_aberto"
+      name="campo_aberto"
+      rows="4"
+      style="width:100%; margin:.25rem 0 1rem; padding:.6rem .75rem; border:1px solid #e5e7eb; border-radius:.5rem; resize:vertical;"
+      placeholder="Escreva aqui suas observações (opcional)">{% if papel == 'Avaliador_2' %}{{ item.get('campo_eberto_2') or '' }}{% else %}{{ item.get('campo_aberto') or '' }}{% endif %}</textarea>
+
+    <div style="display:flex; gap:.75rem; align-items:center;">
+      <button class="btn" type="submit" style="padding:.6rem 1rem; border:0; border-radius:.5rem; background:#111827; color:white; cursor:pointer;">
+        Enviar e ir para o próximo
+      </button>
+      <a href="/fim?email={{ email }}" style="text-decoration:none; color:#6b7280;">pular por agora</a>
+    </div>
   </form>
 </div>
-
-<script>
-  // Atalhos de teclado: S = “Sim”, N = “Não”, Enter = enviar
-  document.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 's') {
-      const sim = document.querySelector('input[name="resposta"][value="Sim"]');
-      if (sim) sim.checked = true;
-    } else if (e.key.toLowerCase() === 'n') {
-      const nao = document.querySelector('input[name="resposta"][value="Não"]');
-      if (nao) nao.checked = true;
-    } else if (e.key === 'Enter') {
-      e.preventDefault(); // evita submeter em campos de seleção acidentalmente
-      const form = document.getElementById('form-avaliar');
-      if (form) form.submit();
-    }
-  });
-</script>
 {% endblock %}

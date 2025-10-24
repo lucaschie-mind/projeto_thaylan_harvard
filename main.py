@@ -30,6 +30,8 @@ feedback_avaliacao = Table(
     Column("Problemas_avaliador_2", Text),
     Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
     Column("updated_at", DateTime, nullable=False, default=datetime.utcnow),
+    Column("campo_aberto", Text),
+    Column("campo_eberto_2", Text),
 )
 
 app = FastAPI(title="Avaliador de Feedbacks")
@@ -96,27 +98,38 @@ def proximo_pendente(email: str, after_id: Optional[int] = None):
             return it
     return itens[0] if itens else None
 
-def atualizar_resposta(item_id: int, papel: str, resposta: str, problemas: Optional[List[str]] = None):
+def atualizar_resposta(
+    item_id: int,
+    papel: str,
+    resposta: str,
+    problemas: Optional[List[str]] = None,
+    campo_aberto: Optional[str] = None,
+):
     if papel == "Avaliador_1":
         col_resp = "Resposta_avaliador_1"
         col_prob = "Problemas_avaliador_1"
+        col_campo = "campo_aberto"          # <-- Avaliador_1 grava aqui
     elif papel == "Avaliador_2":
         col_resp = "Resposta_avaliador_2"
         col_prob = "Problemas_avaliador_2"
+        col_campo = "campo_eberto_2"        # <-- Avaliador_2 grava aqui
     else:
         raise HTTPException(status_code=400, detail="Papel inválido")
 
-    # Agora aceita problemas mesmo com "Sim". Se vier lista vazia, limpa a coluna.
     problemas_csv = None
     if problemas is not None:
         validos = [p for p in problemas if p in PROBLEMA_OPCOES]
-        problemas_csv = ", ".join(validos) if validos else None  # None -> grava NULL (limpa)
+        problemas_csv = ", ".join(validos) if validos else None
 
     campos = {col_resp: resposta, "updated_at": datetime.utcnow()}
     if problemas is not None:
-        campos[col_prob] = problemas_csv  # atualiza/limpa explicitamente
+        campos[col_prob] = problemas_csv
 
-    set_clause = ", ".join([f'"{k}" = :{k}' for k in campos.keys()])
+    # Se veio o campo aberto no POST, grava na coluna específica do papel
+    if campo_aberto is not None:
+        campos[col_campo] = (campo_aberto or "").strip()
+
+    set_clause = ', '.join([f'"{k}" = :{k}' for k in campos.keys()])
     sql = text(f'UPDATE feedback_avaliacao SET {set_clause} WHERE id = :id')
     params = {**campos, "id": item_id}
 
@@ -174,17 +187,18 @@ def submit(
     papel: str = Form(...),
     resposta: str = Form(...),
     problemas: Optional[List[str]] = Form(None),
-    problemas_submitted: Optional[str] = Form(None),  # <-- novo
+    problemas_submitted: Optional[str] = Form(None),
+    campo_aberto: Optional[str] = Form(None),  # <-- NOVO
 ):
     resposta = resposta.strip()
     if resposta not in ("Sim", "Não"):
         raise HTTPException(status_code=400, detail="Resposta inválida")
 
-    # Se o formulário foi enviado e nenhuma opção de problema foi marcada, limpamos a coluna
     if problemas_submitted is not None and problemas is None:
-        problemas = []  # força limpar em atualizar_resposta
+        problemas = []
 
-    atualizar_resposta(id, papel, resposta, problemas)
+    # passa o campo aberto para persistência
+    atualizar_resposta(id, papel, resposta, problemas, campo_aberto)
 
     email_norm = normalize_email(email)
     prox = proximo_pendente(email_norm, after_id=id)
