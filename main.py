@@ -31,7 +31,7 @@ feedback_avaliacao = Table(
     Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
     Column("updated_at", DateTime, nullable=False, default=datetime.utcnow),
     Column("campo_aberto", Text),
-    Column("campo_eberto_2", Text),
+    Column("campo_aberto_2", Text),
 )
 
 app = FastAPI(title="Avaliador de Feedbacks")
@@ -112,7 +112,7 @@ def atualizar_resposta(
     elif papel == "Avaliador_2":
         col_resp = "Resposta_avaliador_2"
         col_prob = "Problemas_avaliador_2"
-        col_campo = "campo_eberto_2"        # <-- Avaliador_2 grava aqui
+        col_campo = "campo_aberto_2"        # <-- Avaliador_2 grava aqui
     else:
         raise HTTPException(status_code=400, detail="Papel inválido")
 
